@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 8082;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 require('dotenv').config();
 app.use(cors());
@@ -15,6 +15,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 const run = async () => {
     try {
         const cartCollection = client.db('eShopTask').collection('cartCollection')
+        const usersCollection = client.db('eShopTask').collection('usersCollection')
 
         app.get('/cart', async (req, res) => {
             const email = req.query.email;
@@ -25,8 +26,13 @@ const run = async () => {
         app.post('/add-to-cart', async (req, res) => {
             const item = req.body;
             const result = await cartCollection.insertOne(item);
-            console.log(item);
             res.send(result);
+        })
+        app.delete('/cart', async (req, res) => {
+            const itemId = req.query.id;
+            const query = { _id: ObjectId(itemId) };
+            const result = await cartCollection.deleteOne(query);
+            res.send(result)
         })
 
 
