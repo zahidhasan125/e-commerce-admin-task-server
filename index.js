@@ -35,6 +35,17 @@ const run = async () => {
             res.send(result)
         })
 
+        app.post('/signup', async (req, res) => {
+            const userData = req.body;
+            const userEmail = userData.email;
+            const query= { email: userEmail}
+            const userExist = await usersCollection.findOne(query);
+            if (!userExist) {
+                const result = await usersCollection.insertOne(userData);
+                res.send(result);
+            }
+        })
+
 
     }
     finally {
