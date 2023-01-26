@@ -3,10 +3,12 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 8082;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const jwt = require('jsonwebtoken');
 
 require('dotenv').config();
 app.use(cors());
 app.use(express.json());
+
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.voxvdqi.mongodb.net/?retryWrites=true&w=majority`;
@@ -16,6 +18,12 @@ const run = async () => {
     try {
         const cartCollection = client.db('eShopTask').collection('cartCollection')
         const usersCollection = client.db('eShopTask').collection('usersCollection')
+        const productsCollection = client.db('eShopTask').collection('productsCollection')
+
+        app.get('/products', async (req, res) => {
+            const products = await productsCollection.find({}).toArray();
+            res.send(products);
+        })
 
         app.get('/cart', async (req, res) => {
             const email = req.query.email;
@@ -46,6 +54,11 @@ const run = async () => {
             }
         })
 
+        app.get('/orders', async (req, res) => {
+            const query = {};
+            const orders = await cartCollection.find(query).toArray();
+            res.send(orders)
+        })
 
     }
     finally {
