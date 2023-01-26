@@ -14,11 +14,37 @@ app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.voxvdqi.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+const verifyJWT = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send('Unauthorized!');
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).send('Forbidden');
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
+
 const run = async () => {
     try {
         const cartCollection = client.db('eShopTask').collection('cartCollection')
         const usersCollection = client.db('eShopTask').collection('usersCollection')
         const productsCollection = client.db('eShopTask').collection('productsCollection')
+
+        app.get('/jwt', async (req, res) => {
+            const email = req.query.email;
+            const query = { email: email };
+            const userExist = await usersCollection.findOne(query);
+            if (userExist) {
+                const token = jwt.sign({ email }, process.env.TOKEN_SECRET, { expiresIn: '7 days' });
+                return res.send({accessToken: token})
+            }
+            res.status(401).send({ accessToken: '' });
+        })
 
         app.get('/products', async (req, res) => {
             const products = await productsCollection.find({}).toArray();
@@ -36,7 +62,7 @@ const run = async () => {
             const result = await cartCollection.insertOne(item);
             res.send(result);
         })
-        app.delete('/cart', async (req, res) => {
+        app.delete('/cart', verifyJWT, async (req, res) => {
             const itemId = req.query.id;
             const query = { _id: ObjectId(itemId) };
             const result = await cartCollection.deleteOne(query);
@@ -46,7 +72,7 @@ const run = async () => {
         app.post('/signup', async (req, res) => {
             const userData = req.body;
             const userEmail = userData.email;
-            const query= { email: userEmail}
+            const query = { email: userEmail }
             const userExist = await usersCollection.findOne(query);
             if (!userExist) {
                 const result = await usersCollection.insertOne(userData);
