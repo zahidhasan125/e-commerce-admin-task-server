@@ -41,7 +41,7 @@ const run = async () => {
             const userExist = await usersCollection.findOne(query);
             if (userExist) {
                 const token = jwt.sign({ email }, process.env.TOKEN_SECRET, { expiresIn: '7 days' });
-                return res.send({accessToken: token})
+                return res.send({ accessToken: token })
             }
             res.status(401).send({ accessToken: '' });
         })
@@ -51,22 +51,34 @@ const run = async () => {
             res.send(products);
         })
 
-        app.get('/cart', async (req, res) => {
+        app.get('/cart', verifyJWT, async (req, res) => {
             const email = req.query.email;
             const query = { customer: email };
             const cartItems = await cartCollection.find(query).toArray();
             res.send(cartItems);
         })
-        app.post('/add-to-cart', async (req, res) => {
+        app.patch('/add-to-cart', verifyJWT, async (req, res) => {
             const item = req.body;
-            const result = await cartCollection.insertOne(item);
-            res.send(result);
+            const query = { _id: item._id };
+            const itemExits = await cartCollection.findOne(query);
+            const option = { upsert: true };
+            if (itemExits === null) {
+                const result = await cartCollection.insertOne(item);
+                res.send(result);
+            }
+            else {
+                const updateDoc = {
+                    $set: { quantity: item.quantity + itemExits.quantity, totalPrice: item.totalPrice + itemExits.totalPrice }
+                }
+                const result = await cartCollection.updateOne(query, updateDoc, option);
+                res.send(result)
+            }
         })
         app.delete('/cart', verifyJWT, async (req, res) => {
             const itemId = req.query.id;
-            const query = { _id: ObjectId(itemId) };
+            const query = { _id: itemId };
             const result = await cartCollection.deleteOne(query);
-            res.send(result)
+            res.send(result);
         })
 
         app.post('/signup', async (req, res) => {
@@ -84,6 +96,12 @@ const run = async () => {
             const query = {};
             const orders = await cartCollection.find(query).toArray();
             res.send(orders)
+        })
+        app.delete('/orders', verifyJWT, async (req, res) => {
+            const itemId = req.query.id;
+            const query = { _id: ObjectId(itemId) };
+            const result = await cartCollection.deleteOne(query);
+            res.send(result);
         })
 
     }
