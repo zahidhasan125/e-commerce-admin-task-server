@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const port = process.env.PORT || 8082;
+const port = process.env.PORT || 8000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 
@@ -31,9 +31,19 @@ const verifyJWT = (req, res, next) => {
 
 const run = async () => {
     try {
-        const cartCollection = client.db('eShopTask').collection('cartCollection')
-        const usersCollection = client.db('eShopTask').collection('usersCollection')
-        const productsCollection = client.db('eShopTask').collection('productsCollection')
+        const cartCollection = client.db('eShopTask').collection('cartCollection');
+        const usersCollection = client.db('eShopTask').collection('usersCollection');
+        const productsCollection = client.db('eShopTask').collection('productsCollection');
+
+        const verifyAdmin = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+            if (user?.type !== 'admin') {
+                return res.status(403).send({ message: "Forbidden" })
+            }
+            next();
+        }
 
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
@@ -86,9 +96,15 @@ const run = async () => {
             const userEmail = userData.email;
             const query = { email: userEmail }
             const userExist = await usersCollection.findOne(query);
-            if (!userExist) {
+            if (!userExist && userData.type) {
                 const result = await usersCollection.insertOne(userData);
                 res.send(result);
+            } else if (!userExist && !userData.type) {
+                const newUserData = { ...userData, type: 'buyer' };
+                const result = await usersCollection.insertOne(newUserData);
+                res.send(result);
+            } else {
+                res.send({ message: 'User already exists.'})
             }
         })
 
@@ -102,6 +118,22 @@ const run = async () => {
             const query = { _id: ObjectId(itemId) };
             const result = await cartCollection.deleteOne(query);
             res.send(result);
+        })
+
+        app.get('/customers', verifyJWT, verifyAdmin, async (req, res) => {
+            const customers = await usersCollection.find({}).toArray();
+            res.send(customers);
+        })
+
+        app.get('/customers/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await usersCollection.findOne(query);
+            if (user?.type === 'admin') {
+                res.send({ isAdmin: user?.type === 'admin' })
+            } else {
+                res.send({ isSeller: user?.type === 'buyer' })
+            }
         })
 
     }
