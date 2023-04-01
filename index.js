@@ -61,6 +61,19 @@ const run = async () => {
             res.send(products);
         })
 
+        app.post('/product', async (req, res) => {
+            const product = req.body;
+            const result = await productsCollection.insertOne(product);
+            res.send(result);
+        })
+
+        app.delete('/product', verifyJWT, async (req, res) => {
+            const itemId = req.query.id;
+            const query = { _id: ObjectId(itemId) };
+            const result = await productsCollection.deleteOne(query);
+            res.send(result);
+        })
+
         app.get('/cart', verifyJWT, async (req, res) => {
             const email = req.query.email;
             const query = { customer: email };
@@ -115,7 +128,7 @@ const run = async () => {
         })
         app.delete('/orders', verifyJWT, async (req, res) => {
             const itemId = req.query.id;
-            const query = { _id: ObjectId(itemId) };
+            const query = { _id: itemId };
             const result = await cartCollection.deleteOne(query);
             res.send(result);
         })
